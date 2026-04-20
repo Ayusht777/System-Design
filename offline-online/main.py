@@ -20,8 +20,14 @@ def status(users:list[str]=Query(...)):
         res = redis_client.get(user)
         ttl = redis_client.ttl(user) # Check how many seconds are left
         print(f"User: {user}, Value: {res}, TTL: {ttl}")
+        if res:
+            if float(res) < (datetime.now().timestamp() - 100):
+                result[user]=False  # offline
+            else:
+                result[user]=True # online
+        else:
+            result[user]=False # offline
 
-        result[user]=True if res else False 
     return {"data":result}
 
 @app.post('/status/{user_id}')
@@ -29,7 +35,7 @@ def update_status(user_id:str):
     """
     This endpoint will update the status of the user in the database.
     """
-    res = redis_client.set(user_id,datetime.now().timestamp(),ex=300)
+    res = redis_client.set(user_id,datetime.now().timestamp(),ex=100)
     return {"data":True if res else False}
 
     
