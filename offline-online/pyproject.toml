@@ -1,0 +1,11 @@
+[project]
+name = "offline-online"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.136.0",
+    "redis>=7.4.0",
+    "uvicorn>=0.44.0",
+]
