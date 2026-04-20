@@ -20,6 +20,7 @@ def status(users:list[str]=Query(...)):
         res = redis_client.get(user)
         ttl = redis_client.ttl(user) # Check how many seconds are left
         print(f"User: {user}, Value: {res}, TTL: {ttl}")
+
         result[user]=True if res else False 
     return {"data":result}
 
