@@ -17,7 +17,7 @@ def status(users:list[str]=Query(...)):
 
     result={}
     for user in users:
-        res = redis_client.get(user)
+        res = redis_client.get(user) # should not use .get() for multiple user use pipeline
         ttl = redis_client.ttl(user) # Check how many seconds are left
         print(f"User: {user}, Value: {res}, TTL: {ttl}")
         if res:
@@ -38,4 +38,3 @@ def update_status(user_id:str):
     res = redis_client.set(user_id,datetime.now().timestamp(),ex=100)
     return {"data":True if res else False}
 
-    
