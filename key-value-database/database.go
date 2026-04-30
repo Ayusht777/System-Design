@@ -15,7 +15,8 @@ type database struct {
 type KV interface {
 	Set(ctx context.Context, key string, value any, ttl int64) (bool, error)
 	Get(ctx context.Context, key string) (value any, err error)
-	CleanUp(ctx context.Context) (bool, error)
+	BackgroundTasks(ctx context.Context)
+	cleanUp(ctx context.Context) (bool, error)
 }
 
 func NewKv(dbConn *pgxpool.Pool) KV {
@@ -87,7 +88,7 @@ func (d *database) Get(ctx context.Context, key string) (value any, err error) {
 }
 
 // this delete is background task which delete the key
-func (d *database) CleanUp(ctx context.Context) (bool, error) {
+func (d *database) cleanUp(ctx context.Context) (bool, error) {
 	tx, err := d.dbConn.Begin(ctx)
 	if err != nil {
 		fmt.Printf("Unable To Start Transaction : %v", err)
@@ -102,12 +103,34 @@ func (d *database) CleanUp(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	fmt.Printf("Total Row Deleted :%v", rowAffected.RowsAffected())
+	fmt.Printf("Total Row Deleted :%d", rowAffected.RowsAffected())
 	err = tx.Commit(ctx)
 	if err != nil {
 		fmt.Printf("Unable To Commit : %v", err)
 		return false, err
 	}
 	return true, nil
+
+}
+
+func (d *database) BackgroundTasks(ctx context.Context) {
+	// run every 1 minute it create ticks means it give trigger every 1 minute
+	ticker := time.NewTicker(30 * time.Second)
+
+	//infinte loop
+	for {
+		select {
+		case <-ticker.C:
+			fmt.Printf("\nStarting Cleanup Tick : %v", time.Now().Format("15:04:05"))
+			if _, err := d.cleanUp(ctx); err != nil {
+				fmt.Printf("cleanup error: %v\n", err)
+			}
+
+		case <-ctx.Done():
+			ticker.Stop()
+			fmt.Println("shutting down background tasks")
+			return
+		}
+	}
 
 }

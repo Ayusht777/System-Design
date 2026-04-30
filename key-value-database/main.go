@@ -46,4 +46,25 @@ func main() {
 	}
 	defer conn.Close()
 
+	// create object
+	dbObj := NewKv(conn)
+
+	// run background task thread / go routine
+	go dbObj.BackgroundTasks(ctx)
+
+	res, err := dbObj.Set(ctx, "ayush", 144, 24)
+	if err != nil {
+		fmt.Printf("Unable To Set Key Value : %v", err)
+	}
+	fmt.Printf("Result : %v", res)
+
+	resval, err := dbObj.Get(ctx, "ayush")
+	if err != nil {
+		fmt.Printf("Unable To Set Key Value : %v", err)
+	}
+	fmt.Printf("Result : %v", resval)
+
+	//this is used to prevent the main thread to not go terminate
+	select {}
+
 }
