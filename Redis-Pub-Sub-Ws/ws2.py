@@ -14,7 +14,7 @@ app = FastAPI()
 pubsub  = redis_client.pubsub()
 
 async def redis_receive(ws):
-        await pubsub.subscribe('chat_channel')
+        await pubsub.subscribe('chat_channel2')
 
         try:
             async for message in pubsub.listen():
@@ -30,12 +30,13 @@ async def websocket_endpoint(ws:WebSocket):
     try:
         while True:
             # Wait for any incoming messages from the client to keep connection alive
-            await ws.receive_text()
+            message = await ws.receive_text()
+            await redis_client.publish('chat_channel', message)
     except Exception as e:
         print("Client disconnected", e)
     finally:
         redis_task.cancel()
-        await pubsub.unsubscribe('chat_channel')
+        await pubsub.unsubscribe('chat_channel2')
 
 
 
