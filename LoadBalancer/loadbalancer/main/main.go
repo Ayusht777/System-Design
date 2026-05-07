@@ -13,7 +13,11 @@ var BackendServers = []string{
 
 var CurrentServerIndex = 0
 
-func ForwardRequest(clientRequest net.Conn) error {
+// This approach is inefficient because it performs blocking I/O.
+// The load balancer waits for the server's response before proceeding,
+// preventing it from accepting new requests or concurrently forwarding data to the client.
+
+func ForwardRequestWithoutThread(clientRequest net.Conn) error {
 	fmt.Println("Forwarding request to server", CurrentServerIndex)
 	//1. select the current server
 	currentServerUrl := BackendServers[CurrentServerIndex]
@@ -56,7 +60,7 @@ func main() {
 		panic(err)
 	}
 
-	err = ForwardRequest(incommingRequests)
+	err = ForwardRequestWithoutThread(incommingRequests)
 	if err != nil {
 		fmt.Println("error forwarding request", err)
 	}
