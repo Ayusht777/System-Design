@@ -64,5 +64,6 @@ func main() {
 	if err != nil {
 		fmt.Println("error forwarding request", err)
 	}
+	fmt.Println("request forwarded to server main close")
 
 }
