@@ -14,6 +14,7 @@ var BackendServers = []string{
 var CurrentServerIndex = 0
 
 func ForwardRequest(clientRequest net.Conn) error {
+	fmt.Println("Forwarding request to server", CurrentServerIndex)
 	//1. select the current server
 	currentServerUrl := BackendServers[CurrentServerIndex]
 
@@ -23,6 +24,9 @@ func ForwardRequest(clientRequest net.Conn) error {
 	}
 
 	defer connectToServer.Close()
+
+	// To move to the next server after the request is served
+	CurrentServerIndex = (CurrentServerIndex + 1) % len(BackendServers)
 
 	//2. copy the response from the backend to the client
 	// io.copy is used to copy the response from the backend to the client vice versa and it take args dest and src

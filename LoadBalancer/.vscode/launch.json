@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Load Balancer",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/loadbalancer/main/main.go"
+        },
+        {
+            "name": "Debug Miniserver 1",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/miniserver1/main/main.go"
+        },
+        {
+            "name": "Debug Miniserver 2",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/miniserver2/main/main.go"
+        }
+    ]
+}
