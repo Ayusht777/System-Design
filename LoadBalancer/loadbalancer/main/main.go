@@ -96,14 +96,43 @@ func main() {
 	fmt.Println("load balancer started")
 
 	// this the incoming / client connection accepter
-	incomingRequests, err := listener.Accept()
+	req := 0
 
-	if err != nil {
-		panic(err)
+	for {
+		incomingRequests, err := listener.Accept()
+
+		if err != nil {
+			fmt.Println("error in accepting request", err)
+			continue
+		}
+
+		go ForwardRequest(incomingRequests)
+
+		req++
+		fmt.Println("number of requests", req)
 	}
 
-	ForwardRequest(incomingRequests)
-
-	fmt.Println("request forwarded to server main close")
-
 }
+
+// func main() {
+// 	//start a loa balance server
+// 	listener, err := net.Listen("tcp", ":8080")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	defer listener.Close()
+
+// 	fmt.Println("load balancer started")
+
+// 	// this the incoming / client connection accepter
+// 	incomingRequests, err := listener.Accept()
+
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	ForwardRequest(incomingRequests)
+
+// 	fmt.Println("request forwarded to server main close")
+
+// }
