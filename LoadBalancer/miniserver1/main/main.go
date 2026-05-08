@@ -10,6 +10,7 @@ import (
 
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// time.Sleep(15 * time.Second)
 		fmt.Fprint(w, "Hello World from Server 1")
 	})
 
