@@ -22,5 +22,15 @@
             "mode": "auto",
             "program": "${workspaceFolder}/miniserver2/main/main.go"
         }
+    ],
+    "compounds": [
+        {
+            "name": "Debug Full System",
+            "configurations": [
+                "Debug Load Balancer",
+                "Debug Miniserver 1",
+                "Debug Miniserver 2"
+            ]
+        }
     ]
 }
