@@ -12,6 +12,8 @@ var BackendServers = []string{
 	"localhost:8082",
 }
 
+//this variable will going to cause issue with concurrency so we need to use mutex to protect it for production
+
 var CurrentServerIndex = 0
 
 // This approach is inefficient because it performs blocking I/O.
