@@ -71,22 +71,22 @@ func ForwardRequest(clientRequest net.Conn) error {
 
 func main() {
 	//start a loa balance server
-	listner, err := net.Listen("tcp", ":8080")
+	listener, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		panic(err)
 	}
-	defer listner.Close()
+	defer listener.Close()
 
 	fmt.Println("load balancer started")
 
-	// this the incomming / client connection accepter
-	incommingRequests, err := listner.Accept()
+	// this the incoming / client connection accepter
+	incomingRequests, err := listener.Accept()
 
 	if err != nil {
 		panic(err)
 	}
 
-	err = ForwardRequest(incommingRequests)
+	err = ForwardRequest(incomingRequests)
 	if err != nil {
 		fmt.Println("error forwarding request", err)
 	}
