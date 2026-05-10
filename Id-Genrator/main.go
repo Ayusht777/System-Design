@@ -121,18 +121,18 @@ Even if "+" sometimes works,
 "|" is safer and clearer.
 */
 
-// why this is constant = because we have total 1024 machine
-// 0-1023 machine id we can 2^10 is = 1024
+// keep this constant because machine id space is fixed
+// 10 bits => 0-1023 (2^10 = 1024 possible machine ids)
 const MACHINED_ID int64 = 1023
 
-const MAX_COUNTER int64 = 4095 // 2^12
+const MAX_COUNTER int64 = 4095 // 2^12 - 1 (12-bit max value)
 var (
 	counter int64 = 0
 	lock    sync.Mutex
 )
 
 // [timestamp][machine][sequence]
-// timestamp = 42 bit
+// timestamp = 41 bit
 // machine = 10 bit
 // sequence = 12 bit
 func GenerateSnowflakeId() int64 {
@@ -140,10 +140,10 @@ func GenerateSnowflakeId() int64 {
 	defer lock.Unlock()
 
 	// Unix Milliseconds: 13 digits (current era)
-	// one number of 4 bit
+	// current unix milli value is around 41 bits in binary (today)
 	timeInMillisecond := time.Now().UnixMilli()
 	fmt.Println("the  millisecond ", timeInMillisecond)
-	//why 22 = because we have left  10 for machine id and 12 for sequence number
+	//why 22 = because we keep 10 bits for machine id and 12 bits for sequence
 	fmt.Println("the left shift ", timeInMillisecond<<22)
 
 	if counter < MAX_COUNTER {
@@ -209,7 +209,7 @@ func GenerateSnowflakeId() int64 {
 
 		after << 22:
 
-		1010100000000000000000
+		101010 followed by 22 zeros
 
 		Now lower 22 bits are empty.
 
