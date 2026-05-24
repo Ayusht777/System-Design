@@ -85,29 +85,23 @@ func AddServer(serverName string) {
 	log.Println("The Sorted Server Positions -> ", serverPositions)
 }
 
-func GetServer(serverName string) int {
+func GetServer(key string) int {
 	if len(serverPositions) == 0 {
 		log.Println("No servers are available")
 		return -1
 	}
 
-	keyHash := getMaxValueBasedHash(serverName)
+	keyHash := getMaxValueBasedHash(key)
 
-	for start, end := 0, len(serverPositions)-1; start <= end; {
-		mid := (start + end) / 2
-		if keyHash == serverPositions[mid] {
-			return serverPositions[mid]
-
-		}
-
-		if keyHash < serverPositions[mid] {
-			end = mid - 1 // Search left half
-		} else {
-			start = mid + 1 // Search right half
+	// Linear search (normal loop) to find the first server position >= keyHash
+	for i := 0; i < len(serverPositions); i++ {
+		if serverPositions[i] >= keyHash {
+			return serverPositions[i]
 		}
 	}
 
-	return -1
+	// If no server position is >= keyHash, wrap around the ring to the first server
+	return serverPositions[0]
 }
 
 func RemoveServer(serverName string) bool {
@@ -138,18 +132,17 @@ func RemoveServer(serverName string) bool {
 }
 
 func main() {
+	log.Println("--- Testing Consistent Hashing ---")
 
-	AddServer("ayush1")
-	AddServer("ayush4")
-	// AddServer("ayush1")
-	// AddServer("ayush2")
-	// AddServer("ayush3")
-	// AddServer("ayush4")
+	// Add servers to our hash ring
+	AddServer("ServerA")
+	AddServer("ServerB")
 
-	// key1 := "Ayush1"
-	// key2 := "Ayush4"
-
-	// log.Println("The Server for key1 -> ", directHashing(key1, crc32Hash))
-	// log.Println("The Server for key2 -> ", directHashing(key2, md5Hash))
-
+	// Fire requests (keys) to see which server position they are routed to
+	keys := []string{"Request10", "Request2", "Request3", "TestUser"}
+	
+	for _, key := range keys {
+		serverPos := GetServer(key)
+		log.Printf("Request Key '%s' mapped to server at position: %d", key, serverPos)
+	}
 }
