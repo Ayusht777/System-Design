@@ -50,7 +50,7 @@ func BuildBaseCsvIndex(filePath string) (map[string]int64, error) {
 }
 
 func main() {
-	index, err := BuildBaseCsvIndex("/workspaces/shared-lib/main/data.csv")
+	index, err := BuildBaseCsvIndex("data.csv")
 	if err != nil {
 		fmt.Println(err)
 	}
