@@ -17,6 +17,11 @@ type Header struct {
 
 const HeaderSize int64 = 256
 
+const (
+	baseFilePath     = "/home/ayush/Desktop/SystemDesign/word-dictionary/data.csv"
+	baseTempFilePath = "/home/ayush/Desktop/SystemDesign/word-dictionary/"
+)
+
 var indexMapper map[string]int64
 
 func BuildBaseCsvIndex(filePath string) error {
@@ -25,7 +30,7 @@ func BuildBaseCsvIndex(filePath string) error {
 	if err != nil {
 		return fmt.Errorf("unable to open the file %s : err [%w]", filePath, err)
 	}
-	tmpFile, err := os.CreateTemp("/workspaces/shared-lib/", "temp-data-*.csv")
+	tmpFile, err := os.CreateTemp(baseTempFilePath, "temp-data-*.csv")
 	if err != nil {
 		return fmt.Errorf("unable to create temp file : err [%w]", err)
 	}
@@ -194,11 +199,11 @@ func LoadCustomCsv(filePath string) error {
 }
 
 func main() {
-	// err := BuildBaseCsvIndex("/workspaces/shared-lib/main/data.csv")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	err := LoadCustomCsv("/workspaces/shared-lib/main/data.csv")
+	err := BuildBaseCsvIndex(baseFilePath)
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = LoadCustomCsv(baseFilePath)
 	if err != nil {
 		fmt.Println(err)
 	}
