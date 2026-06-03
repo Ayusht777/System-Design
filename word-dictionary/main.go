@@ -17,6 +17,8 @@ type Header struct {
 
 const HeaderSize int64 = 256
 
+var indexMapper map[string]int64
+
 func BuildBaseCsvIndex(filePath string) error {
 
 	baseFile, err := os.Open(filePath)
@@ -129,6 +131,8 @@ func LoadCustomCsv(filePath string) error {
 		return fmt.Errorf("unable to open the file %s : err [%w]", filePath, err)
 	}
 
+	defer baseFile.Close()
+
 	headerBytes := make([]byte, HeaderSize)
 
 	_, err = baseFile.Read(headerBytes)
@@ -153,7 +157,9 @@ func LoadCustomCsv(filePath string) error {
 	baseFile.Seek(startOfIndex, io.SeekStart)
 
 	fileCursor := bufio.NewReader(baseFile)
-	indexMapper := map[string]int64{}
+
+	indexMapper = make(map[string]int64)
+
 	for {
 		// Read Tile \n
 		line, err := fileCursor.ReadBytes('\n')
