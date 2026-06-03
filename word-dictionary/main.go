@@ -198,14 +198,56 @@ func LoadCustomCsv(filePath string) error {
 	return nil
 }
 
+func getKeyValueFromIndex(keyword string) (string, error) {
+	if indexMapper == nil {
+		return "", fmt.Errorf("their is no index map is existed")
+	}
+	offset, ok := indexMapper[keyword]
+
+	if !ok {
+		return "", fmt.Errorf("their is no keyword existed in file")
+	}
+
+	baseFile, err := os.Open(baseFilePath)
+	if err != nil {
+		return "", fmt.Errorf("unable to open the file %s : err [%w]", baseFilePath, err)
+	}
+
+	defer baseFile.Close()
+
+	_, err = baseFile.Seek(offset, io.SeekStart)
+	if err != nil {
+		return "", fmt.Errorf("error while seeking the file : err [%w]", err)
+	}
+
+	fileCursor := bufio.NewReader(baseFile)
+	line, err := fileCursor.ReadBytes('\n')
+
+	lineToString := string(line)
+	trimSpaceLine := strings.TrimSpace(lineToString)
+	trimSpaceLineSplit := strings.SplitN(trimSpaceLine, ",", 2)
+
+	if len(trimSpaceLineSplit) != 2 {
+		return "", fmt.Errorf("error while splitting the line : err [%w]", err)
+	}
+	return trimSpaceLineSplit[1], nil
+}
+
 func main() {
 	err := BuildBaseCsvIndex(baseFilePath)
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	err = LoadCustomCsv(baseFilePath)
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	data, err := getKeyValueFromIndex("apple")
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(data)
 
 }
