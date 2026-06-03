@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 )
 
 type Header struct {
@@ -121,9 +123,78 @@ func BuildBaseCsvIndex(filePath string) error {
 	return nil
 }
 
+func LoadCustomCsv(filePath string) error {
+	baseFile, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("unable to open the file %s : err [%w]", filePath, err)
+	}
+
+	headerBytes := make([]byte, HeaderSize)
+
+	_, err = baseFile.Read(headerBytes)
+	if err != nil {
+		return fmt.Errorf("unable to read header from the file  : err [%w]", err)
+	}
+	// Get The first new line so we can read the header
+	firstNewLine := bytes.IndexByte(headerBytes, '\n')
+
+	if firstNewLine == 0 {
+		return fmt.Errorf("no header found %v", firstNewLine)
+	}
+	// Read Until the \n get the str from headerBytes array
+	headerString := string(headerBytes[:firstNewLine])
+
+	headerParts := strings.Split(headerString, ",")
+	version := headerParts[0]
+	startOfIndex, err := strconv.ParseInt(headerParts[1], 10, 64)
+	fmt.Println(headerString, version, startOfIndex)
+
+	// Now Build The Index Move The Cursor To Index Start Position in the file
+	baseFile.Seek(startOfIndex, io.SeekStart)
+
+	fileCursor := bufio.NewReader(baseFile)
+	indexMapper := map[string]int64{}
+	for {
+		// Read Tile \n
+		line, err := fileCursor.ReadBytes('\n')
+
+		if len(line) > 0 {
+			// the go strings.TrimSpace Can Remove \n
+			//' '   space
+			// '\t'  tab
+			// '\n'  newline
+			// '\r'  carriage return
+
+			lineString := strings.TrimSpace(string(line))
+			parts := strings.SplitN(lineString, ",", 2)
+			indexKey := parts[0]
+
+			offset, err := strconv.ParseInt(parts[1], 10, 64)
+			if err != nil {
+				return fmt.Errorf("error while converting str into int : err [%w]", err)
+			}
+
+			indexMapper[indexKey] = offset
+
+		}
+
+		//Because Last Line Can Be  Skip If we Add the EOF at the Top
+		if err == io.EOF {
+			break
+		}
+	}
+	fmt.Println(indexMapper)
+	return nil
+}
+
 func main() {
-	err := BuildBaseCsvIndex("/workspaces/shared-lib/main/data.csv")
+	// err := BuildBaseCsvIndex("/workspaces/shared-lib/main/data.csv")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	err := LoadCustomCsv("/workspaces/shared-lib/main/data.csv")
 	if err != nil {
 		fmt.Println(err)
 	}
+
 }
