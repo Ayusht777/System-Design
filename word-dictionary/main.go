@@ -20,7 +20,7 @@ const HeaderSize int64 = 256
 const (
 	baseFilePath     = "/home/ayush/Desktop/SystemDesign/word-dictionary/data.csv"
 	baseTempFilePath = "/home/ayush/Desktop/SystemDesign/word-dictionary/"
-	logFilePath      = "/workspaces/main/changelogs.log"
+	logFilePath      = "/home/ayush/Desktop/SystemDesign/word-dictionary/changelog.log"
 )
 
 var indexMapper map[string]int64
@@ -265,17 +265,93 @@ func syncChangelogs(logsFilePath, filePath string) error {
 		return fmt.Errorf("logs file is empty no update where found")
 	}
 
+	logsFileCursor := bufio.NewReader(logsFile)
+
+	loggerMap := make(map[string]string)
+
+	for {
+
+		logsLine, err := logsFileCursor.ReadBytes('\n')
+		if len(logsLine) > 0 {
+			lineString := strings.TrimSpace(string(logsLine))
+			parts := strings.SplitN(lineString, ",", 2)
+			word := strings.ToLower(parts[0])
+			meaning := strings.ToLower(parts[1])
+			// if key existed in the map update that
+			loggerMap[word] = meaning
+		}
+
+		//Because Last Line Can Be  Skip If we Add the EOF at the Top
+		if err == io.EOF {
+			break
+		}
+	}
+	logsFile.Close()
+
 	baseFile, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("unable to open the file %s : err [%w]", filePath, err)
 	}
 	defer baseFile.Close()
 
-	logsFileCursor := bufio.NewReader(logsFile)
+	tmpFile, err := os.CreateTemp(baseTempFilePath, "temp-data-*.csv")
+	if err != nil {
+		return fmt.Errorf("unable to create temp file : err [%w]", err)
+	}
+
 	baseFileCursor := bufio.NewReader(baseFile)
 
 	for {
 
+		baseLine, err := baseFileCursor.ReadBytes('\n')
+
+		if len(baseLine) > 0 {
+			lineString := strings.TrimSpace(string(baseLine))
+			parts := strings.SplitN(lineString, ",", 2)
+			previousWord := strings.ToLower(parts[0])
+			previousMeaning := strings.ToLower(parts[1])
+
+			newMeaning, ok := loggerMap[previousWord]
+			if ok && strings.ToLower(previousMeaning) != newMeaning {
+
+				appendData := fmt.Sprintf("%s,%s\n", previousWord, newMeaning)
+				_, err := tmpFile.Write([]byte(appendData))
+				if err != nil {
+					return fmt.Errorf("unable to write in temp file : err [%w]", err)
+				}
+			} else {
+				appendData := fmt.Sprintf("%s,%s\n", previousWord, previousMeaning)
+				_, err := tmpFile.Write([]byte(appendData))
+				if err != nil {
+					return fmt.Errorf("unable to write in temp file : err [%w]", err)
+				}
+			}
+		}
+
+		//Because Last Line Can Be  Skip If we Add the EOF at the Top
+		if err == io.EOF {
+			break
+		}
+
+	}
+
+	err = tmpFile.Sync()
+	if err != nil {
+		return err
+	}
+
+	baseFile.Close()
+	tmpFile.Close()
+
+	err = os.Rename(tmpFile.Name(), filePath)
+	if err != nil {
+		return err
+	}
+
+	//Rebuild the our csv file add index
+	err = BuildBaseCsvIndex(baseFilePath)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -297,7 +373,12 @@ func main() {
 	// }
 	// fmt.Println(data)
 
-	err := updateExistingKeyAndValue(logFilePath, "ayush", "test")
+	// err := updateExistingKeyAndValue(logFilePath, "ayush", "test")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	err := syncChangelogs(logFilePath, baseFilePath)
 	if err != nil {
 		fmt.Println(err)
 	}
