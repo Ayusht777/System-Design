@@ -20,6 +20,7 @@ const HeaderSize int64 = 256
 const (
 	baseFilePath     = "/home/ayush/Desktop/SystemDesign/word-dictionary/data.csv"
 	baseTempFilePath = "/home/ayush/Desktop/SystemDesign/word-dictionary/"
+	logFilePath      = "/workspaces/main/changelogs.log"
 )
 
 var indexMapper map[string]int64
@@ -233,21 +234,68 @@ func getKeyValueFromIndex(keyword string) (string, error) {
 	return trimSpaceLineSplit[1], nil
 }
 
+func updateExistingKeyAndValue(logsFilePath, word, meaning string) error {
+
+	// Open the existing file specifically for appending permission is  write-only +  append data to the file when writing.
+	logsFile, err := os.OpenFile(logsFilePath, os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("unable to open the file %s : err [%w]", logsFilePath, err)
+	}
+	defer logsFile.Close()
+
+	_, err = logsFile.Write([]byte(fmt.Sprintf("%s,%s\n", word, meaning)))
+	if err != nil {
+		return fmt.Errorf("unable to write in temp file : err [%w]", err)
+	}
+
+	return nil
+}
+
+func syncChangelogs(logsFilePath, filePath string) error {
+	if indexMapper == nil {
+		return fmt.Errorf("their is no index map is existed")
+	}
+
+	logsFile, err := os.Open(logsFilePath)
+	if err != nil {
+		return fmt.Errorf("unable to open the file %s : err [%w]", logsFilePath, err)
+	}
+	logsFileInfo, err := logsFile.Stat()
+	if err != nil {
+		return err
+	}
+
+	if logsFileInfo.Size() == 0 {
+		return fmt.Errorf("logs file is empty no update where found")
+	}
+
+	baseFile, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("unable to open the file %s : err [%w]", filePath, err)
+	}
+	defer baseFile.Close()
+	return nil
+}
+
 func main() {
-	err := BuildBaseCsvIndex(baseFilePath)
+	// err := BuildBaseCsvIndex(baseFilePath)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	// err = LoadCustomCsv(baseFilePath)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	// data, err := getKeyValueFromIndex("apple")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// fmt.Println(data)
+
+	err := updateExistingKeyAndValue(logFilePath, "ayush", "test")
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	err = LoadCustomCsv(baseFilePath)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	data, err := getKeyValueFromIndex("apple")
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(data)
-
 }
