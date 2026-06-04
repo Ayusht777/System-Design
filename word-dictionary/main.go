@@ -252,10 +252,6 @@ func updateExistingKeyAndValue(logsFilePath, word, meaning string) error {
 }
 
 func syncChangelogs(logsFilePath, filePath string) error {
-	if indexMapper == nil {
-		return fmt.Errorf("their is no index map is existed")
-	}
-
 	logsFile, err := os.Open(logsFilePath)
 	if err != nil {
 		return fmt.Errorf("unable to open the file %s : err [%w]", logsFilePath, err)
@@ -274,6 +270,13 @@ func syncChangelogs(logsFilePath, filePath string) error {
 		return fmt.Errorf("unable to open the file %s : err [%w]", filePath, err)
 	}
 	defer baseFile.Close()
+
+	logsFileCursor := bufio.NewReader(logsFile)
+	baseFileCursor := bufio.NewReader(baseFile)
+
+	for {
+
+	}
 	return nil
 }
 
