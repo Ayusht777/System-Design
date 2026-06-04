@@ -49,3 +49,24 @@ After the syncing process runs, the system processes the changelog and updates t
 | car | a vehicle |
 | banana | a yellow fruit |
 
+### 4. Custom Storage Layout
+
+To achieve O(1) lookups without a database, the system rewrites the base CSV into a custom binary/CSV hybrid format. 
+
+**File Layout:**
+```text
++-------------------+
+| Reserved Header   | 256 bytes (Holds metadata like Index Start Position)
++-------------------+
+| Data Block        | Variable size (The actual word and meaning pairs)
++-------------------+
+| Index Block       | Variable size (Mapping of word -> byte offset)
++-------------------+
+```
+
+#### Why we chose `[Header] -> [Data] -> [Index]`
+When designing a custom storage format, one might consider putting the index before the data (`Header -> Index -> Data`). However, our layout provides significant performance and architectural benefits:
+
+- **Single-Pass Sequential Writing:** By appending the index at the end, we can process the 1TB of data sequentially in a single pass. We reserve a fixed 256 bytes for the header, stream and write the data directly to disk while tracking the byte offsets in memory, and then dump the index at the very end. Finally, we rewind to the 0th byte and write the exact offset where the index started into the header.
+- **The Issue with `[Header] -> [Index] -> [Data]`:** If we placed the index first, we wouldn't know how many bytes the index requires until we have processed all 171,476 words. This would force us to either read the massive 1TB dataset twice (once to calculate the index size, once to write) or buffer all the data in temporary files. For a 1TB file, these approaches are extremely slow, memory-intensive, and I/O heavy.
+- **Fast O(1) Reads:** At runtime, the system only needs to read the 256-byte header to find the Index Block's starting position. It can instantly load the index into memory, giving us O(1) lookups that jump straight to the correct byte offset in the Data Block.
