@@ -133,3 +133,11 @@ To ensure our system scales effectively, let's look at the rough storage and RAM
 **Request Processing RAM:**
 - Because of our file-offset architecture, we never load the 1TB file into memory. We only read the exact bytes we need.
 - Memory allocated per read request: `~5.83 MB` (the average size of one meaning).
+
+## Current Code Limitations (Real Issues in `main.go`)
+
+Based on the current prototype implementation, here are the critical, real-world issues in `main.go` that need to be addressed before scaling:
+
+- **File Descriptor Exhaustion (The Biggest Bottleneck):** In `getKeyValueFromIndex`, the code calls `os.Open()` and closes it for *every single read request*. At 5 million requests per minute, opening and closing a file per request will instantly exhaust OS file descriptors and cause extreme I/O throttling. The app needs to maintain a pool of persistent, thread-safe file handles.
+- **Double File Processing During Sync:** When `syncChangelogs` runs, it writes out the entire 1TB file with the updated rows. But right after, it calls `BuildBaseCsvIndex`, which reads and writes that entire 1TB file *a second time* just to append the index and header. This doubles the massive I/O cost unnecessarily.
+- **Global State & Thread Safety Risks:** `indexMapper` is a package-level global map. While concurrent reads in Go are safe, if a background process ever triggers an index reload (e.g., after a sync) while an incoming request is reading from it, the program will instantly crash with a concurrent map read/write panic. It desperately needs a `sync.RWMutex`.
