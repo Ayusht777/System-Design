@@ -95,3 +95,41 @@ Here are some of the key takeaways and design choices made during the implementa
 
 **Q: Why use the `Write Data -> Write Index -> Sync -> Close -> Rename` pattern?**
 **A:** This is a classic storage-engine pattern for safe file updates. It guarantees that we never replace our original, good data file with a partially written or un-flushed file. Only after `Sync()` returns successfully are we certain the new file is fully on disk, making the final OS-level `Rename` a safe, atomic swap.
+
+## Back-of-the-Envelope Calculations
+
+To ensure our system scales effectively, let's look at the rough storage and RAM requirements based on the given constraints.
+
+### 1. Storage Calculations
+
+**Raw Data:**
+- We are given that **171,476 words** take up **1TB** of storage.
+- Average size per entry: `1 TB / 171,476 ≈ 5.83 MB` per word meaning. (This implies meanings are extremely detailed, possibly containing encyclopedic content, HTML, or large metadata).
+
+**Custom Index Overhead:**
+- In our custom file format, the index maps each word to a byte offset (e.g., `apple,256\n`).
+- Average word length: ~10 bytes.
+- Byte offset length (up to 1TB): ~13 characters (e.g., `1000000000000`).
+- Comma + Newline: 2 bytes.
+- Estimated size per index entry: `~25 bytes`.
+- Total Index Size: `171,476 words * 25 bytes ≈ 4.28 MB`.
+- **Total Disk Space:** `1TB (Data) + 4.28 MB (Index) + 256 bytes (Header) ≈ 1TB`. The custom index overhead is practically negligible (less than 0.0005% of the total size).
+
+**Changelog Storage:**
+- Weekly updates: max **1,000 words**.
+- Storage growth per week: `1000 * 5.83 MB ≈ 5.83 GB` of new data per week.
+
+### 2. RAM (Memory) Calculations
+
+**Holding the Index:**
+- To achieve instantaneous O(1) reads, the entire index is loaded into RAM as a hash map (`map[string]int64`).
+- String key: ~15 bytes (avg word) + 16 bytes (Go string header) = 31 bytes.
+- Value (int64 offset): 8 bytes.
+- Hash map bucket/pointer overhead in Go: ~40 bytes per entry.
+- Total memory per entry: `~79 bytes`.
+- **Total RAM for Index:** `171,476 words * 79 bytes ≈ 13.5 MB`.
+- *Conclusion:* We only need **~13.5 MB of RAM** to hold the index for a 1TB database! This is incredibly memory-efficient.
+
+**Request Processing RAM:**
+- Because of our file-offset architecture, we never load the 1TB file into memory. We only read the exact bytes we need.
+- Memory allocated per read request: `~5.83 MB` (the average size of one meaning).
