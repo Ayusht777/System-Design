@@ -25,6 +25,37 @@ const (
 
 var indexMapper map[string]int64
 
+func readHeader(file *os.File) (*Header, error) {
+	headerBytes := make([]byte, HeaderSize)
+
+	_, err := file.Read(headerBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	firstNewLine := bytes.IndexByte(headerBytes, '\n')
+	if firstNewLine == -1 {
+		return nil, fmt.Errorf("invalid header")
+	}
+
+	headerString := string(headerBytes[:firstNewLine])
+
+	parts := strings.Split(headerString, ",")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid header format")
+	}
+
+	indexStart, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Header{
+		FileVersion: 1,
+		IndexStart:  indexStart,
+	}, nil
+}
+
 func BuildBaseCsvIndex(filePath string) error {
 
 	baseFile, err := os.Open(filePath)
@@ -251,7 +282,7 @@ func updateExistingKeyAndValue(logsFilePath, word, meaning string) error {
 	return nil
 }
 
-func syncChangelogs(logsFilePath, filePath string) error {
+func syncChangelogs(logsFilePath, CustomCsvFilePath string) error {
 	logsFile, err := os.Open(logsFilePath)
 	if err != nil {
 		return fmt.Errorf("unable to open the file %s : err [%w]", logsFilePath, err)
@@ -288,11 +319,20 @@ func syncChangelogs(logsFilePath, filePath string) error {
 	}
 	logsFile.Close()
 
-	baseFile, err := os.Open(filePath)
+	baseFile, err := os.Open(CustomCsvFilePath)
 	if err != nil {
-		return fmt.Errorf("unable to open the file %s : err [%w]", filePath, err)
+		return fmt.Errorf("unable to open the file %s : err [%w]", CustomCsvFilePath, err)
 	}
 	defer baseFile.Close()
+
+	header, err := readHeader(baseFile)
+	if err != nil {
+		return err
+	}
+	_, err = baseFile.Seek(HeaderSize, io.SeekStart)
+	if err != nil {
+		return err
+	}
 
 	tmpFile, err := os.CreateTemp(baseTempFilePath, "temp-data-*.csv")
 	if err != nil {
@@ -301,12 +341,17 @@ func syncChangelogs(logsFilePath, filePath string) error {
 
 	baseFileCursor := bufio.NewReader(baseFile)
 
-	for {
+	currentOffset := HeaderSize
+
+	for currentOffset < header.IndexStart {
 
 		baseLine, err := baseFileCursor.ReadBytes('\n')
 
 		if len(baseLine) > 0 {
+			currentOffset += int64(len(baseLine))
+
 			lineString := strings.TrimSpace(string(baseLine))
+
 			parts := strings.SplitN(lineString, ",", 2)
 			previousWord := strings.ToLower(parts[0])
 			previousMeaning := strings.ToLower(parts[1])
@@ -343,7 +388,7 @@ func syncChangelogs(logsFilePath, filePath string) error {
 	baseFile.Close()
 	tmpFile.Close()
 
-	err = os.Rename(tmpFile.Name(), filePath)
+	err = os.Rename(tmpFile.Name(), CustomCsvFilePath)
 	if err != nil {
 		return err
 	}
@@ -357,29 +402,29 @@ func syncChangelogs(logsFilePath, filePath string) error {
 }
 
 func main() {
-	// err := BuildBaseCsvIndex(baseFilePath)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// err = LoadCustomCsv(baseFilePath)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// data, err := getKeyValueFromIndex("apple")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	// fmt.Println(data)
-
-	// err := updateExistingKeyAndValue(logFilePath, "ayush", "test")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	err := syncChangelogs(logFilePath, baseFilePath)
+	err := BuildBaseCsvIndex(baseFilePath)
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	// // err = LoadCustomCsv(baseFilePath)
+	// // if err != nil {
+	// // 	fmt.Println(err)
+	// // }
+
+	// // data, err := getKeyValueFromIndex("apple")
+	// // if err != nil {
+	// // 	fmt.Println(err)
+	// // }
+	// // fmt.Println(data)
+
+	// // err := updateExistingKeyAndValue(logFilePath, "ayush", "test")
+	// // if err != nil {
+	// // 	fmt.Println(err)
+	// // }
+
+	// err := syncChangelogs(logFilePath, baseFilePath)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 }
