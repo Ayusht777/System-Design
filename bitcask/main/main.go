@@ -123,18 +123,8 @@ func AddKeyValue(activeFileInfo FileInfoMapper, inMemMapper *map[string]KeyMappe
 	// 		appendObject.Key,
 	// 		appendObject.Value,
 	// 	)))
-	writeLines, err := fmt.Fprintf(writeFile,
-		"%d%d%d%d%s%s",
-		appendObject.CheckSumHash,
-		appendObject.TimeStamp,
-		appendObject.KeySize,
-		appendObject.ValueSize,
-		appendObject.Key,
-		appendObject.Value)
-
-	if err != nil {
-		return err
-	}
+   
+	//#Todo need to use write bytes in code
 
 	writeFile.Sync() // Ensure data is flushed to disk
 	//step 3 add to inMemMapper
@@ -149,6 +139,30 @@ func AddKeyValue(activeFileInfo FileInfoMapper, inMemMapper *map[string]KeyMappe
 
 }
 
+func GetValueByKey(key string, inMemMapper *map[string]KeyMapper) (string, error) {
+	keyInfo, exists := (*inMemMapper)[key]
+	if !exists {
+		return "", fmt.Errorf("key not found")
+	}
+	fileSeek, err := os.Open(keyInfo.FileInfo)
+	if err != nil {
+		return "", err
+	}
+	defer fileSeek.Close()
+
+	_, err = fileSeek.Seek(int64(keyInfo.ValueStartCursor), io.SeekStart)
+	if err != nil {
+		return "", err
+	}
+	binaryValue := make([]byte, keyInfo.ValueSize)
+
+	_, err = io.ReadFull(fileSeek, binaryValue)
+	if err != nil {
+		return "", err
+	}
+
+	return string(binaryValue), nil
+}
 func main() {
 	fileInfoMapper, err := FileLoader("/home/ayush/Desktop/SystemDesign/bitcask/db")
 	if err != nil {
@@ -181,4 +195,11 @@ func main() {
 	lookUpMapper := make(map[string]KeyMapper)
 	err = AddKeyValue(activeFileInfo, &lookUpMapper, "key1", "value1")
 
+	value, err := GetValueByKey("key1", &lookUpMapper)
+	if err != nil {
+		fmt.Println("Error getting value by key:", err)
+		return
+	}
+
+	fmt.Println("Value for key1:", value)
 }
