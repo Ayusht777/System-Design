@@ -123,6 +123,7 @@ func AddKeyValue(activeFileInfo *FileInfoMapper, inMemMapper *map[string]KeyMapp
 			return err
 		}
 		activeFileInfo.FileName = updateActiveFileName
+		activeFileInfo.FileSize = 0
 	}
 
 	//Step 1 Open The File for writing the data only
@@ -173,7 +174,7 @@ func AddKeyValue(activeFileInfo *FileInfoMapper, inMemMapper *map[string]KeyMapp
 	writeFile.Write([]byte(appendObject.Value))
 
 	//Need To Update File Size So Rotaion Can work
-	activeFileInfo.FileSize = int64(CalculateRecordSize(key, data))
+	activeFileInfo.FileSize = recordStart + int64(CalculateRecordSize(key, data))
 
 	writeFile.Sync() // Ensure data is flushed to disk
 	//step 3 add to inMemMapper
@@ -230,7 +231,7 @@ func main() {
 			return
 		}
 		defer file.Close()
-
+		// Need to update the original mapper
 		newFileInfo := FileInfoMapper{
 			FileName:     "data-1.dat",
 			FileSize:     0,
