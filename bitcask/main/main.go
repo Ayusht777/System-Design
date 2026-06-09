@@ -37,7 +37,7 @@ type StorageLoggerObj struct {
 
 const (
 	HeaderSize  = 16
-	MaxFileSize = 1  // 1mb
+	MaxFileSize = 1 * 1024 * 1024 // 1mb
 )
 
 func GenrateHash(value string) uint32 {
