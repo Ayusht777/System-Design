@@ -22,6 +22,7 @@ type FileInfoMapper struct {
 	FileName     string
 	FileSize     int64
 	FileBasePath string
+	FileFullPath string
 	ModeTime     time.Time
 	IsActive     bool
 }
@@ -40,7 +41,7 @@ const (
 	MaxFileSize = 1 * 1024 * 1024 // 1mb
 )
 
-func GenrateHash(value string) uint32 {
+func GenerateHash(value string) uint32 {
 	hash := crc32.ChecksumIEEE([]byte(value))
 	return hash
 }
@@ -83,12 +84,13 @@ func FileLoader(baseDirPath string) ([]FileInfoMapper, error) {
 
 		fileMapper = append(fileMapper, FileInfoMapper{
 			FileName: file.Name(),
-			// it can be dervie by filepath but for simplicity we are using file.Name() here
+			// it can be derive by filepath but for simplicity we are using file.Name() here
 			FileSize:     fileInfo.Size(),
-			FileBasePath: baseDirPath + "/" + file.Name(),
+			FileBasePath: baseDirPath,
+			FileFullPath: baseDirPath + "/" + file.Name(),
 			ModeTime:     fileInfo.ModTime(),
 			IsActive:     false,
-			// by deafult it will be false because we are not able to determine the active status of the file at this point
+			// by default it will be false because we are not able to determine the active status of the file at this point
 			//, we will update it later when we will read the file and check if it is active or not
 		})
 	}
@@ -124,10 +126,11 @@ func AddKeyValue(activeFileInfo *FileInfoMapper, inMemMapper *map[string]KeyMapp
 		}
 		activeFileInfo.FileName = updateActiveFileName
 		activeFileInfo.FileSize = 0
+		activeFileInfo.FileFullPath = activeFileInfo.FileBasePath + activeFileInfo.FileName
 	}
 
 	//Step 1 Open The File for writing the data only
-	writeFile, err := os.OpenFile(activeFileInfo.FileBasePath+activeFileInfo.FileName,
+	writeFile, err := os.OpenFile(activeFileInfo.FileFullPath,
 		os.O_CREATE|
 			os.O_APPEND|
 			os.O_RDWR,
@@ -143,7 +146,7 @@ func AddKeyValue(activeFileInfo *FileInfoMapper, inMemMapper *map[string]KeyMapp
 
 	//Step 2 Write The Data To The File
 	appendObject := StorageLoggerObj{
-		CheckSumHash: GenrateHash(data), // 32 byte = 4 bytes
+		CheckSumHash: GenerateHash(data), // 32 byte = 4 bytes
 		TimeStamp:    uint32(time.Now().Unix()),
 		KeySize:      uint32(len(key)),
 		ValueSize:    uint32(len(data)),
@@ -173,14 +176,14 @@ func AddKeyValue(activeFileInfo *FileInfoMapper, inMemMapper *map[string]KeyMapp
 	writeFile.Write([]byte(appendObject.Key))
 	writeFile.Write([]byte(appendObject.Value))
 
-	//Need To Update File Size So Rotaion Can work
+	//Need To Update File Size So Rotation Can work
 	activeFileInfo.FileSize = recordStart + int64(CalculateRecordSize(key, data))
 
 	writeFile.Sync() // Ensure data is flushed to disk
 	//step 3 add to inMemMapper
 
 	(*inMemMapper)[key] = KeyMapper{
-		FileInfo:         activeFileInfo.FileBasePath,
+		FileInfo:         activeFileInfo.FileFullPath,
 		ValueSize:        int(appendObject.ValueSize),
 		ValueStartCursor: int(ValueStartCursor),
 	}
@@ -214,8 +217,92 @@ func GetValueByKey(key string, inMemMapper *map[string]KeyMapper) (string, error
 	return string(binaryValue), nil
 }
 
+func RebuildMemoryMaps(fileList []FileInfoMapper, inMemMapper *map[string]KeyMapper) {
+
+	for _, currentFile := range fileList {
+		err := scanFileBuildMap(currentFile.FileFullPath, inMemMapper)
+		if err != nil {
+			continue
+		}
+	}
+
+}
+
+func scanFileBuildMap(filePath string, inMemMapper *map[string]KeyMapper) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+
+	defer file.Close()
+
+	var offset int64
+
+	for {
+		var (
+			checkSum  uint32
+			timeStamp uint32
+			keySize   uint32
+			valueSize uint32
+		)
+
+		err := binary.Read(file, binary.LittleEndian, &checkSum) // <- Binding Variable
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			return err
+		}
+
+		err = binary.Read(file, binary.LittleEndian, &timeStamp)
+		if err != nil {
+			return err
+		}
+
+		err = binary.Read(file, binary.LittleEndian, &keySize)
+		if err != nil {
+			return err
+		}
+
+		err = binary.Read(file, binary.LittleEndian, &valueSize)
+		if err != nil {
+			return err
+		}
+
+		//Now We Have All The Header Bytes
+		keyBytes := make([]byte, keySize)
+
+		_, err = io.ReadFull(file, keyBytes)
+		if err != nil {
+			return err
+		}
+
+		valueStartCursor := int64(offset) + int64(HeaderSize) + int64(keySize)
+
+		//Look at where the cursor is now,
+		// then move forward by this many bytes.
+
+		currentOffset, err := file.Seek(int64(valueSize), io.SeekCurrent)
+		if err != nil {
+			return err
+		}
+
+		(*inMemMapper)[string(keyBytes)] = KeyMapper{
+			FileInfo:         filePath,
+			ValueSize:        int(valueSize),
+			ValueStartCursor: int(valueStartCursor),
+		}
+
+		offset += currentOffset
+
+	}
+
+	return nil
+}
+
 func main() {
-	fileInfoMapper, err := FileLoader("/home/ayush/Desktop/SystemDesign/bitcask/db")
+	fileInfoMapper, err := FileLoader("/main/db")
 	if err != nil {
 		fmt.Println("Error loading files:", err)
 		return
@@ -223,9 +310,10 @@ func main() {
 	// Mean The App Is Started First Time so no
 	// file is there in the directory so
 	//  we need to create a new file and add it to the fileInfoMapper
+	lookUpMapper := make(map[string]KeyMapper)
 
 	if fileInfoMapper == nil {
-		file, err := os.OpenFile("/home/ayush/Desktop/SystemDesign/bitcask/db/data-0001.dat", os.O_CREATE|os.O_WRONLY, 0644)
+		file, err := os.OpenFile("/main/db/data-1.dat", os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			fmt.Println("Error opening file:", err)
 			return
@@ -235,15 +323,17 @@ func main() {
 		newFileInfo := FileInfoMapper{
 			FileName:     "data-1.dat",
 			FileSize:     0,
-			FileBasePath: "/home/ayush/Desktop/SystemDesign/bitcask/db/",
+			FileBasePath: "/main/db/",
+			FileFullPath: "/main/db/data-1.dat",
 			ModeTime:     time.Now(),
 			IsActive:     true,
 		}
 		fileInfoMapper = append(fileInfoMapper, newFileInfo)
+	} else {
+		RebuildMemoryMaps(fileInfoMapper, &lookUpMapper)
 	}
 
 	activeFileInfo := GetFileForAppend(fileInfoMapper)
-	lookUpMapper := make(map[string]KeyMapper)
 	err = AddKeyValue(&activeFileInfo, &lookUpMapper, "key1", "value1")
 
 	value, err := GetValueByKey("key1", &lookUpMapper)
